@@ -50,11 +50,19 @@ public class OrderQueryRepository {
     public List<OrderQueryDto> findAllByDto_optimization() {
         List<OrderQueryDto> result = findOrders();
 
-        List<Long> orderIds = result.stream()
-                //map을 돌면서 o (order)를 orderId로 바꾼다.
-                .map(o -> o.getOrderId())
-                .collect(Collectors.toList());
+        //List<Long> orderIds = toOrderIds(result);
+        //Map<Long, List<OrderItemQueryDto>> orderItemMap = findOrderItemMap(orderIds); 밑에 한줄로 합치기.
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = findOrderItemMap(toOrderIds(result));
 
+        //앞에 버전은 루프를 돌면서 쿼리를 날렸다면
+        //번 버전은 쿼리를 한번 날리고, 메모리에 값을 맵으로 가져온다음 메모리에서 값을 세팅하는 방법.
+        result.forEach(o -> o.setOrderItems(orderItemMap.get(o.getOrderId())));
+
+        return result;
+
+    }
+
+    private Map<Long, List<OrderItemQueryDto>> findOrderItemMap(List<Long> orderIds) {
         List<OrderItemQueryDto> orderItems = em.createQuery(
                 "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id,i.name,oi.orderPrice,oi.count)" +
                         " from OrderItem oi" +
@@ -67,12 +75,14 @@ public class OrderQueryRepository {
         Map<Long, List<OrderItemQueryDto>> orderItemMap = orderItems.stream()
                 //orderItemQueryDto.getOrderId() 키 값.
                 .collect(Collectors.groupingBy(orderItemQueryDto -> orderItemQueryDto.getOrderId()));
+        return orderItemMap;
+    }
 
-        //앞에 버전은 루프를 돌면서 쿼리를 날렸다면
-        //번 버전은 쿼리를 한번 날리고, 메모리에 값을 맵으로 가져온다음 메모리에서 값을 세팅하는 방법.
-        result.forEach(o -> o.setOrderItems(orderItemMap.get(o.getOrderId())));
-
-        return result;
-
+    private List<Long> toOrderIds(List<OrderQueryDto> result) {
+        List<Long> orderIds = result.stream()
+                //map을 돌면서 o (order)를 orderId로 바꾼다.
+                .map(o -> o.getOrderId())
+                .collect(Collectors.toList());
+        return orderIds;
     }
 }
